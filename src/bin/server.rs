@@ -1,5 +1,5 @@
 use std::{
-    io::{BufReader, Write},
+    io::{BufRead, BufReader, Write},
     net::TcpListener,
 };
 
@@ -42,5 +42,19 @@ fn main() {
         };
         debug!("Accepted connection to {}", addr);
         let mut stream = BufReader::new(stream);
+
+        // Now we have a connection
+        // Listen for commands, quit if connection closed
+        loop {
+            let mut buf = Vec::new();
+            if let Err(err) = stream.read_until(b'0', &mut buf) {
+                eprintln!("Error while reading: {}", err);
+                break;
+            }
+            if buf.is_empty() {
+                debug!("Done with {}", addr);
+                break;
+            }
+        }
     }
 }
