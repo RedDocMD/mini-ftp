@@ -1,14 +1,29 @@
 use std::{
-    io::BufReader,
+    io::{BufReader, Write},
     net::{Ipv4Addr, TcpStream},
     str::FromStr,
 };
 
 use colored::*;
 
+use log::debug;
 use mini_ftp::Command;
 
 fn main() {
+    env_logger::builder()
+        .format(|buf, rec| {
+            let line = rec
+                .line()
+                .map_or(String::new(), |line| format!(":{}", line));
+            let file = rec
+                .file()
+                .map_or(String::new(), |file| format!(" {}", file));
+            let prelude = format!("[{}{}{}]", rec.level(), file, line);
+            writeln!(buf, "{} {}", prelude.cyan(), rec.args())
+        })
+        .write_style(env_logger::WriteStyle::Always)
+        .init();
+
     let mut rl = rustyline::Editor::<()>::new();
     let mut ctxt = Context::new();
     loop {
@@ -25,7 +40,7 @@ fn main() {
                     println!("Quit");
                     return;
                 }
-                eprintln!("{:?}", cmd);
+                debug!("{:?}", cmd);
                 match cmd {
                     Command::Open(addr, port) => ctxt.handle_open(addr, port),
                     Command::User(_) => todo!(),
