@@ -9,6 +9,11 @@ use colored::*;
 use log::debug;
 use mini_ftp::{BufTcpStream, Command};
 
+macro_rules! client_err {
+    ($format_string: expr, $($arg:tt)*) => (eprintln!("{}", format!($format_string, $($arg)*).red()));
+    ($string:expr) => (eprintln!("{}", format!("{}", $string).red()));
+}
+
 fn main() {
     env_logger::builder()
         .format(|buf, rec| {
@@ -32,7 +37,7 @@ fn main() {
                 let cmd = match Command::from_str(&line) {
                     Ok(cmd) => cmd,
                     Err(err) => {
-                        eprintln!("{}", err);
+                        client_err!(err);
                         continue;
                     }
                 };
@@ -67,7 +72,7 @@ fn main() {
                         return;
                     }
                     _ => {
-                        eprintln!("Failed to readline: {}", err);
+                        client_err!("Failed to readline: {}", err);
                         std::process::exit(1);
                     }
                 }
@@ -100,13 +105,13 @@ impl Context {
 
     fn handle_open(&mut self, addr: Ipv4Addr, port: u16) {
         if self.conn.is_some() {
-            eprintln!("{}", "Already opened".red());
+            client_err!("Already opened");
             return;
         }
         let stream = match TcpStream::connect((addr, port)) {
             Ok(stream) => stream,
             Err(err) => {
-                eprintln!("{}", format!("Failed to open: {}", err).red());
+                client_err!("Failed to open: {}", err);
                 return;
             }
         };
@@ -116,7 +121,7 @@ impl Context {
 
     fn handle_user(&mut self, cmd: &Command) {
         if self.conn_stat != ConnectionStatus::Connected {
-            eprintln!("{}", "Cannot set user now".red());
+            client_err!("Cannot set user now");
             return;
         }
         let conn = self.conn.as_mut().unwrap();
@@ -124,17 +129,17 @@ impl Context {
         conn.write_all(&cmd_bytes).ok();
         let mut reply = [0_u8; 4];
         if let Err(err) = conn.read_exact(&mut reply) {
-            eprintln!("Failed to read: {}", err);
+            client_err!("Failed to read: {}", err);
             return;
         }
         if &reply == b"600\0" {
-            eprintln!("{}", "Cannot set user now".red());
+            client_err!("Cannot set user now");
         } else if &reply == b"500\0" {
-            eprintln!("{}", "User doesn't exist".red());
+            client_err!("User doesn't exist");
         } else if &reply == b"200\0" {
             self.conn_stat = ConnectionStatus::SentUser;
         } else {
-            eprintln!("{}", "Invalid response from server".red());
+            client_err!("Invalid response from server");
         }
     }
 }
