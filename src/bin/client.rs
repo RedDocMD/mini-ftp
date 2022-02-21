@@ -43,7 +43,7 @@ fn main() {
                 debug!("{:?}", cmd);
                 match cmd {
                     Command::Open(addr, port) => ctxt.handle_open(addr, port),
-                    Command::User(_) => todo!(),
+                    Command::User(name) => ctxt.handle_user(name),
                     Command::Password(_) => todo!(),
                     Command::Cd(_) => todo!(),
                     Command::Lcd(_) => todo!(),
@@ -76,13 +76,26 @@ fn main() {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ConnectionStatus {
+    Disconnnected,
+    Connected,
+    SentUser,
+    Ready,
+}
+
+#[derive(Debug)]
 struct Context {
     conn: Option<BufReader<TcpStream>>,
+    conn_stat: ConnectionStatus,
 }
 
 impl Context {
     fn new() -> Self {
-        Self { conn: None }
+        Self {
+            conn: None,
+            conn_stat: ConnectionStatus::Disconnnected,
+        }
     }
 
     fn handle_open(&mut self, addr: Ipv4Addr, port: u16) {
@@ -98,5 +111,13 @@ impl Context {
             }
         };
         self.conn = Some(BufReader::new(stream));
+        self.conn_stat = ConnectionStatus::Connected;
+    }
+
+    fn handle_user(&mut self, name: String) {
+        if self.conn_stat != ConnectionStatus::Connected {
+            eprintln!("{}", "Cannot set user now".red());
+            return;
+        }
     }
 }

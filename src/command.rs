@@ -26,6 +26,42 @@ pub enum Command {
     Quit,
 }
 
+impl Command {
+    pub fn from_bytes(buf: &[u8]) -> Result<Command, MiniFtpError> {
+        if buf.is_empty() {
+            return Err(MiniFtpError::InvalidMessage(
+                "command cannot be empty".into(),
+            ));
+        }
+        if buf.last().unwrap() != &b'\0' {
+            return Err(MiniFtpError::InvalidMessage(
+                "command message must end in null".into(),
+            ));
+        }
+        let mess = std::str::from_utf8(&buf[..buf.len() - 1])?;
+        Command::from_str(mess)
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let str_rep = match self {
+            Command::User(name) => format!("user {}", name),
+            Command::Password(pass) => format!("pass {}", pass),
+            Command::Cd(dir) => format!("cd {}", dir),
+            Command::Dir => "dir".into(),
+            Command::Get(from, to) => format!("get {} {}", from, to),
+            Command::Put(from, to) => format!("put {} {}", from, to),
+            Command::Mget(names) => format!("mget {}", names.join(", ")),
+            Command::Mput(names) => format!("mput {}", names.join(", ")),
+            Command::Open(_, _) => unreachable!("shouldn't convert open to bytes"),
+            Command::Lcd(_) => unreachable!("shouldn't convert lcd to bytes"),
+            Command::Quit => unreachable!("shouldn't convert quit command to bytes"),
+        };
+        let mut bytes = str_rep.into_bytes();
+        bytes.push(b'\0');
+        bytes
+    }
+}
+
 impl FromStr for Command {
     type Err = MiniFtpError;
 

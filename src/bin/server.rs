@@ -47,7 +47,7 @@ fn main() {
         // Listen for commands, quit if connection closed
         loop {
             let mut buf = Vec::new();
-            if let Err(err) = stream.read_until(b'0', &mut buf) {
+            if let Err(err) = stream.read_until(b'\0', &mut buf) {
                 eprintln!("Error while reading: {}", err);
                 break;
             }
