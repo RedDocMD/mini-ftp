@@ -1,5 +1,5 @@
 use std::{
-    io::{BufReader, Write},
+    io::{Read, Write},
     net::{Ipv4Addr, TcpStream},
     str::FromStr,
 };
@@ -7,7 +7,7 @@ use std::{
 use colored::*;
 
 use log::debug;
-use mini_ftp::Command;
+use mini_ftp::{BufTcpStream, Command};
 
 fn main() {
     env_logger::builder()
@@ -41,9 +41,9 @@ fn main() {
                     return;
                 }
                 debug!("{:?}", cmd);
-                match cmd {
-                    Command::Open(addr, port) => ctxt.handle_open(addr, port),
-                    Command::User(name) => ctxt.handle_user(name),
+                match &cmd {
+                    Command::Open(addr, port) => ctxt.handle_open(*addr, *port),
+                    Command::User(_) => ctxt.handle_user(&cmd),
                     Command::Password(_) => todo!(),
                     Command::Cd(_) => todo!(),
                     Command::Lcd(_) => todo!(),
@@ -86,7 +86,7 @@ enum ConnectionStatus {
 
 #[derive(Debug)]
 struct Context {
-    conn: Option<BufReader<TcpStream>>,
+    conn: Option<BufTcpStream>,
     conn_stat: ConnectionStatus,
 }
 
@@ -110,14 +110,31 @@ impl Context {
                 return;
             }
         };
-        self.conn = Some(BufReader::new(stream));
+        self.conn = Some(BufTcpStream::new(stream));
         self.conn_stat = ConnectionStatus::Connected;
     }
 
-    fn handle_user(&mut self, name: String) {
+    fn handle_user(&mut self, cmd: &Command) {
         if self.conn_stat != ConnectionStatus::Connected {
             eprintln!("{}", "Cannot set user now".red());
             return;
+        }
+        let conn = self.conn.as_mut().unwrap();
+        let cmd_bytes = cmd.to_bytes();
+        conn.write_all(&cmd_bytes).ok();
+        let mut reply = [0_u8; 4];
+        if let Err(err) = conn.read_exact(&mut reply) {
+            eprintln!("Failed to read: {}", err);
+            return;
+        }
+        if &reply == b"600\0" {
+            eprintln!("{}", "Cannot set user now".red());
+        } else if &reply == b"500\0" {
+            eprintln!("{}", "User doesn't exist".red());
+        } else if &reply == b"200\0" {
+            self.conn_stat = ConnectionStatus::SentUser;
+        } else {
+            eprintln!("{}", "Invalid response from server".red());
         }
     }
 }
