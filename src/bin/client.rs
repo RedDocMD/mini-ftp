@@ -14,11 +14,28 @@ fn main() {
                         continue;
                     }
                 };
+                if matches!(cmd, Command::Quit) {
+                    println!("Quit");
+                    return;
+                }
                 println!("{:?}", cmd);
             }
             Err(err) => {
-                eprintln!("Failed to readline: {}", err);
-                std::process::exit(1);
+                use rustyline::error::ReadlineError::*;
+                match err {
+                    Eof => {
+                        println!("Quit");
+                        return;
+                    }
+                    Interrupted => {
+                        println!("Interrupted");
+                        return;
+                    }
+                    _ => {
+                        eprintln!("Failed to readline: {}", err);
+                        std::process::exit(1);
+                    }
+                }
             }
         }
     }
